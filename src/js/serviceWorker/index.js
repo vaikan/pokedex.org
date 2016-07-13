@@ -7,15 +7,12 @@ var constants = require('../shared/util/constants');
 var numSpriteCssFiles = constants.numSpriteCssFiles;
 var range = require('lodash/utility/range');
 
-// 'package-json-versionify' strips out most of package.json
-var pkg = require('../../../package.json');
-
 // Using jake archibald's service worker "semver" style here
 // Pattern here is "a.b.c"
 // a: version-isolated change, don't let both versions run together
 // b: new feature
 // c: bug fix
-var version = pkg.version;
+var version = require('../../../package.json').version;
 
 var staticContent = [
   '/',
@@ -84,8 +81,7 @@ self.addEventListener('activate', function(event) {
   event.waitUntil((async () => {
     // activate right now
     await self.clients.claim();
-    // remove caches beginning "svgomg-" that aren't in
-    // expectedCaches
+    // remove caches beginning "pokedex-static-" that aren't in expectedCaches
     var cacheNames = await caches.keys();
     console.log('cacheNames', cacheNames);
     for (var cacheName of cacheNames) {

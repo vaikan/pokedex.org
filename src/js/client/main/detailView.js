@@ -14,8 +14,10 @@ var lastNationalId;
 function animateDropdownIn(moveDetail, button) {
   requestAnimationFrame(() => {
     moveDetail.classList.remove('hidden');
+    moveDetail.style.willChange = 'opacity, transform';
     moveDetail.style.opacity = 0;
     moveDetail.style.transform = `scaleY(0.01)`;
+    button.style.willChange = 'transform';
     button.style.transform = '';
 
     requestAnimationFrame(() => {
@@ -30,6 +32,11 @@ function animateDropdownIn(moveDetail, button) {
     moveDetail.addEventListener('transitionend', function listener() {
       moveDetail.classList.remove('animating');
       button.classList.remove('animating');
+      // deliberately keep will-change:transform even after the anim
+      // finishes. this way the animation will be primed for the next time;
+      // otherwise it ends up looking weird
+      moveDetail.style.willChange = 'transform';
+      button.style.willChange = '';
       moveDetail.removeEventListener('transitionend', listener);
     });
   });
@@ -37,7 +44,9 @@ function animateDropdownIn(moveDetail, button) {
 
 function animateDropdownOut(moveDetail, button) {
   requestAnimationFrame(() => {
+    moveDetail.style.willChange = 'transform';
     moveDetail.style.transform = '';
+    button.style.willChange = 'transform';
     button.style.transform = 'rotate(90deg)';
 
     requestAnimationFrame(() => {
@@ -52,6 +61,8 @@ function animateDropdownOut(moveDetail, button) {
       moveDetail.classList.remove('animating');
       moveDetail.classList.add('hidden');
       button.classList.remove('animating');
+      moveDetail.style.willChange = '';
+      button.style.willChange = '';
       moveDetail.removeEventListener('transitionend', listener);
     });
   });

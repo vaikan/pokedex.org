@@ -22,6 +22,7 @@ var spinnerTimeout;
 var screenWidth = window.innerWidth;
 var screenHeight = window.innerHeight;
 
+var cachedSpanHeight;
 var dimensToSpriteRect = {};
 var runningAnimationPartOne = false;
 var queuedAnimation = false;
@@ -42,8 +43,7 @@ function computeTransformsPartOne(nationalId) {
 
   var sourceSpriteRect = sourceSprite.getBoundingClientRect();
   var detailSpriteRect = getDetailSpriteRect();
-  var spanStyle = getComputedStyle(sourceTitleSpan);
-  var sourceTitleSpanHeight = parseInt(spanStyle.height.replace('px', ''));
+  var sourceTitleSpanHeight = getSpanHeight(sourceTitleSpan);
 
   var spriteChangeX = sourceSpriteRect.left - detailSpriteRect.left;
   var spriteChangeY = sourceSpriteRect.top - detailSpriteRect.top;
@@ -118,7 +118,19 @@ function doInAnimationPartOne(nationalId) {
   var spriteFacade = styleSpriteFacade(nationalId, spriteTop, spriteLeft, spriteTransform);
   spriteFacade.classList.remove('hidden');
   detailBackButton.style.transform = 'translateX(-40px)';
+  targetBackground.style.willChange = 'transform';
   targetBackground.style.transform = bgTransform;
+
+  function onAnimEnd() {
+    console.log('done animating');
+    targetBackground.classList.remove('animating');
+    spriteFacade.classList.remove('animating');
+    targetBackground.removeEventListener('transitionend', onAnimEnd);
+    targetBackground.style.willChange = '';
+  }
+
+  targetBackground.addEventListener('transitionend', onAnimEnd);
+  detailPanel.classList.add('hidden');
 
   requestAnimationFrame(() => {
     // go go go!
@@ -126,37 +138,27 @@ function doInAnimationPartOne(nationalId) {
     spriteFacade.classList.add('animating');
     targetBackground.style.transform = '';
     spriteFacade.style.transform = '';
-  });
 
-  function onAnimEnd() {
-    console.log('done animating');
-    targetBackground.classList.remove('animating');
-    spriteFacade.classList.remove('animating');
-    targetBackground.removeEventListener('transitionend', onAnimEnd);
-  }
-
-  targetBackground.addEventListener('transitionend', onAnimEnd);
-  detailPanel.classList.add('hidden');
-
-  requestAnimationFrame(() => {
-    runningAnimationPartOne = false;
-    if (queuedAnimation) {
-      requestAnimationFrame(() => {
-        queuedAnimation();
-        queuedAnimation = null;
-      });
-    } else {
-      // if the second animation is delayed more than 5 seconds,
-      // show a spinner to reassure the user (only happens with slow
-      // connections on first load)
-      spinnerTimeout = setTimeout(() => {
-        spinnerHolder.classList.add('shown');
-      }, 5000);
-    }
-    if (queuedThemeColor) {
-      themeManager.setThemeColor(queuedThemeColor);
-      queuedThemeColor = null;
-    }
+    requestAnimationFrame(() => {
+      runningAnimationPartOne = false;
+      if (queuedAnimation) {
+        requestAnimationFrame(() => {
+          queuedAnimation();
+          queuedAnimation = null;
+        });
+      } else {
+        // if the second animation is delayed more than 5 seconds,
+        // show a spinner to reassure the user (only happens with slow
+        // connections on first load)
+        spinnerTimeout = setTimeout(() => {
+          spinnerHolder.classList.add('shown');
+        }, 5000);
+      }
+      if (queuedThemeColor) {
+        themeManager.setThemeColor(queuedThemeColor);
+        queuedThemeColor = null;
+      }
+    });
   });
 }
 
@@ -217,6 +219,7 @@ function doOutAnimation(nationalId) {
   var spriteFacade = styleSpriteFacade(nationalId, spriteTop, spriteLeft, '');
   spriteFacade.classList.remove('hidden');
   detailSprite.style.opacity = 0;
+  targetBackground.style.willChange = 'transform';
   targetBackground.style.transform = '';
   detailPanel.style.transform = '';
 
@@ -248,6 +251,7 @@ function doOutAnimation(nationalId) {
     each(detailView.querySelectorAll('.moves-row-detail'), el => el.classList.add('hidden'));
     each(detailView.querySelectorAll('.dropdown-button-image'), el => el.style.transform = '');
     targetBackground.removeEventListener('transitionend', onAnimEnd);
+    targetBackground.style.willChange = '';
   }
 
   themeManager.resetThemeColor();
@@ -290,6 +294,17 @@ function getDetailSpriteRect() {
   return result;
 }
 
+function getSpanHeight(span) {
+  // this never changes, so we can cache it instead of recomputing style
+  // every time
+  if (typeof cachedSpanHeight === 'number') {
+    return cachedSpanHeight;
+  }
+  var spanStyle = getComputedStyle(span);
+  cachedSpanHeight = parseInt(spanStyle.height.replace('px', ''), 10);
+  return cachedSpanHeight;
+}
+
 document.addEventListener('DOMContentLoaded', init);
 
 window.addEventListener('resize', onResize);
@@ -309,8 +324,8 @@ function createPartTwoAnimation(nationalId) {
     return () => requestAnimationFrame(() => doInAnimationPartTwo(nationalId));
   }
   return () => setTimeout(() =>
-    requestAnimationFrame(() => doInAnimationPartTwo(nationalId)),
-  animationDelay);
+      requestAnimationFrame(() => doInAnimationPartTwo(nationalId)),
+    animationDelay);
 }
 
 function animateInPartTwo(nationalId) {

@@ -17,6 +17,7 @@ var bundleCollapser = require("bundle-collapser/plugin");
 var envify = require('envify/custom');
 var vdomify = require('./vdomify');
 var concat = require('concat-stream');
+var watch = require('node-watch');
 
 var constants = require('../src/js/shared/util/constants');
 var numSpritesCssFiles = constants.numSpriteCssFiles;
@@ -78,7 +79,7 @@ module.exports = async function build(debug) {
       spritesCss.split('\n').slice(0, CRITICAL_CSS_SPRITES_LINES).join('\n');
 
     mainCss = await inlineSvgs(mainCss);
-    mainCss = await cleanCss.minify(mainCss).styles;
+    mainCss = await minifyCss(mainCss);
     var muiCss = await fs.readFileAsync('./src/vendor/mui.css', 'utf-8');
     muiCss = await minifyCss(muiCss);
     return html
@@ -294,9 +295,35 @@ module.exports = async function build(debug) {
   console.log('building...');
   await rimraf('./www');
   await mkdirp('./www');
-  await* [buildHtml(), buildCss(), buildJS(), buildStatic()];
-  if (!debug) {
+
+  async function buildProd() {
+    console.log('buildProd()');
+    await* [buildHtml(), buildCss(), buildJS(), buildStatic()];
     await inlineCriticalJs();
+    console.log('wrote files to www/');
   }
-  console.log('wrote files to www/');
+
+  async function buildDev() {
+    console.log('buildDev()');
+    await* [buildHtml(), buildCss(), buildJS(), buildStatic()];
+    console.log('wrote files to www/');
+    watch('src/index.html', {recursive: true}, async () => {
+      await buildHtml();
+      console.log('rebuild html');
+    });
+    watch('src/js', {recursive: true}, async () => {
+      await* [buildHtml(), buildJS()];
+      console.log('rebuild html+js');
+    });
+    watch('src/css', {recursive: true}, async () => {
+      await* [buildHtml(), buildCss()];
+      console.log('rebuild html+css');
+    });
+  }
+
+  if (debug) {
+    await buildDev();
+  } else {
+    await buildProd();
+  }
 };

@@ -1,4 +1,3 @@
-var watch = require('node-watch');
 var hs = require('http-server');
 var childProcess = require('child_process');
 var bluebird = require('bluebird');
@@ -8,8 +7,7 @@ var build = require('./build');
 var PouchDB = require('pouchdb');
 var fetch = require('node-fetch');
 PouchDB.plugin(require('pouchdb-load'));
-
-var promiseChain = Promise.resolve();
+var build = require('./build');
 
 async function startPouchServer() {
   await mkdirp('db');
@@ -37,8 +35,9 @@ async function startPouchServer() {
         break;
       }
     } catch (e) {
+      console.log('Waiting for http://localhost:6984 to be up...');
       if (++count === 10) {
-        console.log(e);
+        console.log(e.stack);
         throw new Error('cannot connect to pouchdb-server');
       }
     }
@@ -95,10 +94,6 @@ async function doIt() {
   }
 
   console.log('started dev server at http://127.0.0.1:9000');
-
-  watch(__dirname + '/../src', () => {
-    promiseChain = promiseChain.then(() => build(true));
-  });
 }
 
 doIt().catch(err => console.error(err));
